@@ -14,9 +14,27 @@ class Account(object):
         con = lite.connect('database.db')
         with con:
             cur = con.cursor()
-            cur.execute("INSERT INTO accounts(id, holder_name, amount) VALUES (?, ?, ?)", (self.id, self.holder_name,
-                                                                                           self.amount))
+            cur.execute("""INSERT INTO accounts(id, holder_name, amount) VALUES (?, ?, ?);""", (self.id,
+                                                                                                self.holder_name,
+                                                                                                self.amount))
             con.commit()
+
+    @staticmethod
+    def update_account_amount(account):
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("""UPDATE accounts SET amount=? WHERE id=?""", (account.amount, account.id))
+            con.commit()
+
+    @staticmethod
+    def get_all_accounts():
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("SELECT (id, holder_name, amount) FROM accounts")
+
+            return cur.fetchall()
 
     @staticmethod
     def make_transaction(transaction):
@@ -27,6 +45,8 @@ class Account(object):
                 if source_account.amount >= transaction.amount > 0:
                     source_account.amount -= transaction.amount
                     final_account.amount += transaction.amount
+                    Account.update_account_amount(source_account)
+                    Account.update_account_amount(final_account)
                     print("Transaction completed successfully")
                 else:
                     print("Not enough money on the source account || Amount can't be negative")
@@ -42,6 +62,7 @@ class Account(object):
         if amount > 0:
             source_account = accounts.get(self.id)
             source_account.amount += amount
+            Account.update_account_amount(source_account)
 
     def print_account_info(self):
         print("{0}'s account {1} info: Amount = {2}".format(self.holder_name, self.id, self.amount))
@@ -54,7 +75,7 @@ class Transaction(object):
         self.final_account_id = final_account_id
         self.amount = amount
 
-accounts = dict()
+accounts = Account.get_all_accounts()
 first_account = Account("Mikita Seradzinski")
 first_account.increase_amount(1000000)
 second_account = Account("Anastasia Sadovaya")
