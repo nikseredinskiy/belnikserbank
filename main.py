@@ -1,4 +1,5 @@
 import random
+import sqlite3 as lite
 
 
 class Account(object):
@@ -7,6 +8,15 @@ class Account(object):
         self.holder_name = holder_name
         self.amount = 0
         accounts[self.id] = self
+        self.save_account_to_database()
+
+    def save_account_to_database(self):
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("INSERT INTO accounts(id, holder_name, amount) VALUES (?, ?, ?)", (self.id, self.holder_name,
+                                                                                           self.amount))
+            con.commit()
 
     @staticmethod
     def make_transaction(transaction):
