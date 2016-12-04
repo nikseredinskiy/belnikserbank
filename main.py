@@ -3,21 +3,22 @@ import sqlite3 as lite
 
 
 class Account(object):
-    def __init__(self, holder_name):
+    def __init__(self, holder_name, password):
         self.id = random.randint(0, 999)
         self.holder_name = holder_name
         self.amount = 0
+        self.password = password
 
     @staticmethod
-    def create_account(holder_name):
-        temp = Account(holder_name)
+    def create_account(holder_name, password):
+        temp = Account(holder_name, password)
         Account.save_account_to_database(temp)
         print("Account successfully created")
         return temp.id
 
     @staticmethod
-    def init_account(acc_id, holder_name, amount):
-        temp = Account(holder_name)
+    def init_account(acc_id, holder_name, amount, password):
+        temp = Account(holder_name, password)
         temp.id = acc_id
         temp.amount = amount
         return temp
@@ -26,10 +27,10 @@ class Account(object):
         con = lite.connect('database.db')
         with con:
             cur = con.cursor()
-            cur.execute("""INSERT INTO accounts (id, holder_name, amount)
-                            SELECT * FROM (SELECT ?, ?, ?) AS tmp
+            cur.execute("""INSERT INTO accounts (id, holder_name, amount, password)
+                            SELECT * FROM (SELECT ?, ?, ?, ?) AS tmp
                             WHERE NOT EXISTS (
-                            SELECT id FROM accounts WHERE id = ?) LIMIT 1;""", (self.id, self.holder_name, self.amount, self.id))
+                            SELECT id FROM accounts WHERE id = ?) LIMIT 1;""", (self.id, self.holder_name, self.amount, self.password, self.id))
             con.commit()
 
     @staticmethod
@@ -53,7 +54,7 @@ class Account(object):
     def get_all_accounts():
         temp = dict()
         for acc in Account.fetch_accounts():
-            temp[acc[0]] = Account.init_account(acc[0], acc[1], acc[2])
+            temp[acc[0]] = Account.init_account(acc[0], acc[1], acc[2], acc[3])
         return temp
 
     @staticmethod
@@ -124,7 +125,8 @@ class Menu(object):
     def execute_operating(operation_number, current_account_id):
         if operation_number == "1":
             holder_name = input("Please enter HOLDER_NAME of the new account: ")
-            Account.create_account(holder_name)
+            password = input("Enter password for the new account: ")
+            Account.create_account(holder_name, password)
         if operation_number == "2":
             amount = input("Enter sum of increasing: ")
             Account.increase_amount(current_account_id, int(amount))
@@ -146,10 +148,14 @@ class Menu(object):
 
 
 accounts = Account.get_all_accounts()
-login_id = input("Please enter your account ID: ")
 is_working = True
+login_id = input("Please enter your account ID: ")
+if accounts.get(int(login_id), "404") != "404":
+    user_password = input("Enter password: ")
+    if user_password == accounts.get(int(login_id)).password:
+        is_auth = True
 while is_working:
-    if accounts.get(int(login_id), "404") != "404":
+    if accounts.get(int(login_id), "404") != "404" and is_auth:
         Menu.print_header()
         Menu.print_main_operations_list()
         Menu.print_footer()
@@ -159,9 +165,14 @@ while is_working:
             accounts = Account.get_all_accounts()
         else:
             is_working = False
-    else:
+    elif accounts.get(int(login_id), "404") != "404" and not is_auth:
+        print("Wrong password")
+        is_working = False
+    elif accounts.get(int(login_id), "404") == "404":
         print("No such account")
         name = input("Enter your name for the new account: ")
-        login_id = Account.create_account(name)
+        user_pass = input("Enter password for the new account: ")
+        login_id = Account.create_account(name, user_pass)
+        is_auth = True
         accounts = Account.get_all_accounts()
 print("Bye. See you soon!")
