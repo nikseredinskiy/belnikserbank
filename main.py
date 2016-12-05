@@ -30,7 +30,8 @@ class Account(object):
             cur.execute("""INSERT INTO accounts (id, holder_name, amount, password)
                             SELECT * FROM (SELECT ?, ?, ?, ?) AS tmp
                             WHERE NOT EXISTS (
-                            SELECT id FROM accounts WHERE id = ?) LIMIT 1;""", (self.id, self.holder_name, self.amount, self.password, self.id))
+                            SELECT id FROM accounts WHERE id = ?) LIMIT 1;""",
+                        (self.id, self.holder_name, self.amount, self.password, self.id))
             con.commit()
 
     @staticmethod
@@ -68,6 +69,7 @@ class Account(object):
                     final_account.amount += transaction.amount
                     Account.update_account_amount(source_account)
                     Account.update_account_amount(final_account)
+                    transaction.save_transaction_to_database()
                     print("Transaction completed successfully")
                 else:
                     print("Not enough money on the source account || Amount can't be negative")
@@ -87,6 +89,17 @@ class Account(object):
             Account.update_account_amount(source_account)
             print("Amount successfully increased")
 
+    @staticmethod
+    def decrease_amount(account_id, amount):
+        if amount > 0:
+            source_account = accounts.get(account_id)
+            if source_account.amount > amount:
+                source_account.amount -= amount
+                Account.update_account_amount(source_account)
+                print("Amount successfully decreased")
+            else:
+                print("Not enough money for decreasing")
+
     def print_account_info(self):
         print("{0}'s account {1} info: Amount = {2}".format(self.holder_name, self.id, self.amount))
 
@@ -97,6 +110,51 @@ class Transaction(object):
         self.source_account_id = source_account_id
         self.final_account_id = final_account_id
         self.amount = amount
+
+    def save_transaction_to_database(self):
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("""INSERT INTO transactions (id, source_account_id, final_account_id, amount)
+                                    SELECT * FROM (SELECT ?, ?, ?, ?) AS tmp
+                                    WHERE NOT EXISTS (
+                                    SELECT id FROM transactions WHERE id = ?) LIMIT 1;""",
+                        (self.id, self.source_account_id, self.final_account_id, self.amount, self.id))
+            con.commit()
+
+    @staticmethod
+    def fetch_account_transactions(account_id):
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("SELECT * FROM transactions WHERE source_account_id = ?", (account_id,))
+
+            return cur.fetchall()
+
+    @staticmethod
+    def get_all_accounts_transactions(account_id):
+        temp = dict()
+        for acc_tr in Transaction.fetch_account_transactions(account_id):
+            temp[acc_tr[0]] = Transaction.init_transaction(acc_tr[0], acc_tr[1], acc_tr[2], acc_tr[3])
+        return temp
+
+    @staticmethod
+    def init_transaction(tr_id, tr_source_id, tr_final_id, tr_amount):
+        temp = Transaction(tr_source_id, tr_final_id, tr_amount)
+        temp.id = tr_id
+        return temp
+
+    def delete_transaction(self):
+        con = lite.connect('database.db')
+        with con:
+            cur = con.cursor()
+            cur.execute("""DELETE FROM transactions WHERE id = ?""", (self.id,))
+            con.commit()
+
+    def cancel_transaction(self):
+        Account.increase_amount(self.source_account_id, self.amount)
+        Account.decrease_amount(self.final_account_id, self.amount)
+        self.delete_transaction()
 
 
 class Menu(object):
@@ -134,17 +192,34 @@ class Menu(object):
             temp = Account.get_all_accounts()
             Menu.print_header()
             for i in temp:
-                print("""|ID:{0} Name:{1}""".format(temp[i].id, temp[i].holder_name) + " " * (37 - 9 - len(str(temp[i].id) + temp[i].holder_name)) + "|")
+                print("""|ID:{0} Name:{1}""".format(temp[i].id, temp[i].holder_name) + " " * (
+                    37 - 9 - len(str(temp[i].id) + temp[i].holder_name)) + "|")
             Menu.print_footer()
         if operation_number == "4":
             temp = accounts[current_account_id]
             Menu.print_header()
-            print("|" + str(temp.id) + " " + temp.holder_name + " " + str(temp.amount) + " " * (37 - 2 - len(str(temp.id) + temp.holder_name + str(temp.amount))) + "|")
+            print("|" + str(temp.id) + " " + temp.holder_name + " " + str(temp.amount) + " " * (
+                37 - 2 - len(str(temp.id) + temp.holder_name + str(temp.amount))) + "|")
             Menu.print_footer()
         if operation_number == "5":
             final_account_id = input("Enter destination ID: ")
             amount = input("Enter amount of the transaction: ")
             Account.make_transaction(Transaction(current_account_id, int(final_account_id), int(amount)))
+        if operation_number == "6":
+            transactions_list = Transaction.get_all_accounts_transactions(current_account_id)
+            Menu.print_header()
+            for i in transactions_list:
+                print("""|ID:{0} To:{1} Amount:{2}""".format(transactions_list[i].id,
+                                                             transactions_list[i].final_account_id,
+                                                             transactions_list[i].amount) + " " * (
+                          37 - 15 - len(str(transactions_list[i].id)) - len(str(transactions_list[i].final_account_id))
+                          - len(str(transactions_list[i].amount))) + "|")
+            Menu.print_footer()
+            cancel_transaction_id = input("Enter Transaction ID: ")
+            for i in transactions_list:
+                if transactions_list[i].id == int(cancel_transaction_id):
+                    transactions_list[i].cancel_transaction()
+                    break
 
 
 accounts = Account.get_all_accounts()
