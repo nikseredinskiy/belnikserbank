@@ -170,10 +170,11 @@ class Menu(object):
         print("""|2. Increase amount                   |""")
         print("""|3. Show accounts list                |""")
         print("""|4. Print account info                |""")
-        print("""|5. Make transaction                  |""")
-        print("""|6. Cancel transaction                |""")
-        print("""|7. Delete this account               |""")
-        print("""|8. Quit application                  |""")
+        print("""|5. Show transactions list            |""")
+        print("""|6. Make transaction                  |""")
+        print("""|7. Cancel transaction                |""")
+        print("""|8. Delete this account               |""")
+        print("""|9. Quit application                  |""")
 
     @staticmethod
     def print_footer():
@@ -202,24 +203,43 @@ class Menu(object):
                 37 - 2 - len(str(temp.id) + temp.holder_name + str(temp.amount))) + "|")
             Menu.print_footer()
         if operation_number == "5":
+            Menu.print_header()
+            transactions_list = Transaction.get_all_accounts_transactions(current_account_id)
+            if len(transactions_list) == 0:
+                print("|NO DATA" + " " * (37 - 7) + "|")
+            else:
+                for i in transactions_list:
+                    print("""|ID:{0} To:{1} Amount:{2}""".format(transactions_list[i].id,
+                                                                 transactions_list[i].final_account_id,
+                                                                 transactions_list[i].amount) + " " * (
+                              37 - 15 - len(str(transactions_list[i].id)) - len(
+                                  str(transactions_list[i].final_account_id))
+                              - len(str(transactions_list[i].amount))) + "|")
+            Menu.print_footer()
+        if operation_number == "6":
             final_account_id = input("Enter destination ID: ")
             amount = input("Enter amount of the transaction: ")
             Account.make_transaction(Transaction(current_account_id, int(final_account_id), int(amount)))
-        if operation_number == "6":
+        if operation_number == "7":
             transactions_list = Transaction.get_all_accounts_transactions(current_account_id)
             Menu.print_header()
-            for i in transactions_list:
-                print("""|ID:{0} To:{1} Amount:{2}""".format(transactions_list[i].id,
-                                                             transactions_list[i].final_account_id,
-                                                             transactions_list[i].amount) + " " * (
-                          37 - 15 - len(str(transactions_list[i].id)) - len(str(transactions_list[i].final_account_id))
-                          - len(str(transactions_list[i].amount))) + "|")
+            if len(transactions_list) != 0:
+                for i in transactions_list:
+                    print("""|ID:{0} To:{1} Amount:{2}""".format(transactions_list[i].id,
+                                                                 transactions_list[i].final_account_id,
+                                                                 transactions_list[i].amount) + " " * (
+                              37 - 15 - len(str(transactions_list[i].id)) - len(
+                                  str(transactions_list[i].final_account_id))
+                              - len(str(transactions_list[i].amount))) + "|")
+                Menu.print_footer()
+                cancel_transaction_id = input("Enter Transaction ID: ")
+                for i in transactions_list:
+                    if transactions_list[i].id == int(cancel_transaction_id):
+                        transactions_list[i].cancel_transaction()
+                        break
+            else:
+                print("|NO DATA" + " " * (37 - 7) + "|")
             Menu.print_footer()
-            cancel_transaction_id = input("Enter Transaction ID: ")
-            for i in transactions_list:
-                if transactions_list[i].id == int(cancel_transaction_id):
-                    transactions_list[i].cancel_transaction()
-                    break
 
 
 accounts = Account.get_all_accounts()
@@ -235,7 +255,7 @@ while is_working:
         Menu.print_main_operations_list()
         Menu.print_footer()
         operation = input("Enter number of the operation: ")
-        if operation != "8":
+        if operation != "9":
             Menu.execute_operating(operation, int(login_id))
             accounts = Account.get_all_accounts()
         else:
