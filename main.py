@@ -231,7 +231,6 @@ class Menu(object):
                               37 - 15 - len(str(transactions_list[i].id)) - len(
                                   str(transactions_list[i].final_account_id))
                               - len(str(transactions_list[i].amount))) + "|")
-                Menu.print_footer()
                 cancel_transaction_id = input("Enter Transaction ID: ")
                 for i in transactions_list:
                     if transactions_list[i].id == int(cancel_transaction_id):
